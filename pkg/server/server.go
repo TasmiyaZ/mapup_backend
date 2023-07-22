@@ -29,6 +29,11 @@ var lines []struct {
 	} `json:"line"`
 }
 
+type IntersectionResp struct {
+	LineId int
+	Points Point
+}
+
 // Earth's radius in kilometers
 const earthRadius = 6371.0
 
@@ -54,6 +59,7 @@ func haversine(lat1, lon1, lat2, lon2 float64) float64 {
 	return distance
 }
 
+// conversion from degree to radian
 func degToRad(deg float64) float64 {
 	return deg * (math.Pi / 180)
 }
@@ -94,12 +100,14 @@ func (receiver Evn) FindIntersection(c *gin.Context) {
 		Type         string      `json:"type"`
 		Cooardinates [][]float64 `json:"Coordinates"`
 	}
+	log.Println("called FindIntersection")
 	err := c.BindJSON(&linestring)
 	if err != nil {
 		log.Println("error bind body ", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Incomplete Request"})
 		return
 	}
+	log.Println("Input Received")
 	//reading lines data from file
 	data, err := utilities.ReadDataFromFile("data", "lines.json")
 	if err != nil {
@@ -118,8 +126,9 @@ func (receiver Evn) FindIntersection(c *gin.Context) {
 
 	}
 
-	var intersections []interface{}
-	for _, line := range lines {
+	var intersections []IntersectionResp
+	log.Println("Calculating Intersection")
+	for id, line := range lines {
 
 		for _, line2 := range linestring.Cooardinates {
 			L1 := line.Line.Coordinates
@@ -137,12 +146,16 @@ func (receiver Evn) FindIntersection(c *gin.Context) {
 
 			if isIntersect && !math.IsNaN(inter.Latitude) {
 
-				intersections = append(intersections, inter)
+				intersections = append(intersections, IntersectionResp{
+					LineId: id,
+					Points: inter,
+				})
 			}
 		}
 
 	}
 	//sending final output
+	log.Println("Returning Response")
 	c.JSON(http.StatusOK, gin.H{"data": intersections})
 	return
 }
